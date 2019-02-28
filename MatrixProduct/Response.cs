@@ -6,10 +6,22 @@ using System.Threading.Tasks;
 
 namespace MatrixProduct
 {
-    public class Response
+    public class BaseResponse
     {
-        public string Value { get; set; }
         public string Cause { get; set; }
         public bool Success { get; set; }
+    }
+
+    public class InitResponse: BaseResponse
+    {
+        public int Value { get; set; }
+    }
+    public class DataSetResponse : BaseResponse
+    {
+        public double[] Value { get; set; }
+    }
+    public class ValidateResponse : BaseResponse
+    {
+        public string Value { get; set; }
     }
 }

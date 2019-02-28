@@ -17,36 +17,39 @@ namespace MatrixProduct
         public bool Init(int size)
         {
             string apiUri = ConfigurationManager.AppSettings["ApiGetInitSize"];
-            var rspns = GetHttps(apiUri, size.ToString());
-            return rspns.Success;
+            var json = GetHttps(apiUri, size.ToString());
+            var response = JsonConvert.DeserializeObject<InitResponse>(json);
+            return response.Success;
         }
 
-        public List<int> GetRowData(string dataset, int index)
+        public double[] GetRowData(string dataset, int index)
         {
-            var retval = new List<int>();
+            double[] retval = new List<double>().ToArray();
             string apiUri = ConfigurationManager.AppSettings["ApiGetDataSet"];
             var uriParams = $@"{dataset}/row/{index.ToString()}";
-            var rspns = GetHttps(apiUri, uriParams);
-            if (rspns.Success)
-                retval = rspns.Value.Split(',').Select(x=>int.Parse(x)).ToList();
+            var json = GetHttps(apiUri, uriParams);
+            var response =  JsonConvert.DeserializeObject<DataSetResponse>(json);
+
+            if (response.Success)
+                retval = response.Value;
+
             return retval;
         }
 
         public bool Validate(string hashString)
         {
             string apiUri = ConfigurationManager.AppSettings["ApiPostValidate"];
-            var rspns = PostHttps(apiUri, hashString);
-            return rspns.Success;
+            var json = PostHttps(apiUri, hashString);
+            var response = JsonConvert.DeserializeObject<ValidateResponse>(json);
+            return response.Success;
         }
 
-        private static Response GetHttps(string serviceRootUrl, string index)
+        private string GetHttps(string serviceRootUrl, string index)
         {
             var qUrl = serviceRootUrl + index;
-
-            ServicePointManager.ServerCertificateValidationCallback = delegate (Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
-            {
-                return true;
-            };
+            ServicePointManager.ServerCertificateValidationCallback =
+                delegate (Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
+                {return true;};
 
             HttpWebRequest httpWRequest = (HttpWebRequest)WebRequest.Create(qUrl);
             //httpWRequest.Credentials = new NetworkCredential(this.txtUsername.Text, this.txtPassword.Text);
@@ -65,22 +68,18 @@ namespace MatrixProduct
             var json = sr.ReadToEnd();
             sr.Close();
 
-            return JsonConvert.DeserializeObject<Response>(json);
+            return json;
         }
 
-        private static Response PostHttps(string serviceRootUrl, string body)
+        private string PostHttps(string serviceRootUrl, string body)
         {
-            var retval = string.Empty;
-
-            ServicePointManager.ServerCertificateValidationCallback = delegate (Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
-            {
-                return true;
-            };
+            ServicePointManager.ServerCertificateValidationCallback =
+                delegate (Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
+                {return true;};
 
             var httpWebRequest = (HttpWebRequest)WebRequest.Create(serviceRootUrl);
             httpWebRequest.ContentType = "application/json";
             httpWebRequest.Method = "POST";
-
             httpWebRequest.KeepAlive = false;
             httpWebRequest.PreAuthenticate = true;
             httpWebRequest.Headers.Set("Pragma", "no-cache");
@@ -88,11 +87,9 @@ namespace MatrixProduct
             httpWebRequest.UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; InfoPath.1)";
             httpWebRequest.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
-
             using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
             {
                 //string json = "{\"data\":\"body\"}";
-
                 streamWriter.Write(body);
                 streamWriter.Flush();
                 streamWriter.Close();
@@ -104,7 +101,7 @@ namespace MatrixProduct
             {
                 json = streamReader.ReadToEnd();
             }
-            return JsonConvert.DeserializeObject<Response>(json);
+            return json;
         }
     }
 }

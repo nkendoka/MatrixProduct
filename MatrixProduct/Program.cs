@@ -12,86 +12,26 @@ namespace MatrixProduct
     {
         static void Main(string[] args)
         {
-            var prd = mProduct(Tests.A2, Tests.B2);
-            var prd2 = mProduct(Tests.Ad2, Tests.Bd2);
+            if (args.Any())
+            {
+                var matrixOp = new MxOperation(int.Parse(args[0]));
+            }else
 
-            var strf = Formated(prd);
-            var hs2 = Gmd5H(strf);
-            var hs3 = MD5Hash(strf);
+            while (true)
+            {
+                    Console.Write(">>");
+                    var rd = Console.ReadLine();
+                    if ("QEX".Contains(rd.ToUpper().First())) break;
+                    if (!int.TryParse(rd, out int size)) continue;
 
-            var cService = new InvCloudService();
-
-            cService.Init(2);
-            cService.GetRowData("A", 1);
-            cService.GetRowData("B", 0);
-
-            cService.Validate(hs2);
-        }
-
-        static int[,] mProduct(int[,] A, int[,] B)
-        {
-            var size = A.GetLength(0);
-            var C = new int[size, size];
-
-            for (int i = 0; i < size; i++)
-                for (int j = 0; j < size; j++)
-                    for (int k = 0; k < size; k++)
-                        C[i, j] += A[i, k] * B[k, j];
-
-            return C;
-        }
-        static double[,] mProduct(double[,] A, double[,] B)
-        {
-            Matrix<double> Aa = DenseMatrix.OfArray(A);
-            Matrix<double> Bb = DenseMatrix.OfArray(B);
-
-            var Cc = Aa.Multiply(Bb);
-            return Cc.ToArray();
-
-        }
-
-        //MD5 hash of values. Joined by colulmn then by row into a single string without separators and then hashed.
-        static string Formated(int[,] A)
-        {
-            var retval = string.Empty;
-            var size = A.GetLength(0);
-
-            //foreach (var r in A)
-            //    retval += r.ToString();
-
-            for (int i = 0; i < size; i++)
-                for (int j = 0; j < size; j++)
-                    retval += A[j, i].ToString();
-
-            return retval;
-        }
-
-        static string Gmd5H(string input)
-        {
-            var sb = new StringBuilder();
-
-            MD5 md5 = System.Security.Cryptography.MD5.Create();
-            byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(input);
-            byte[] hash = md5.ComputeHash(inputBytes);
+                    var matrixOp = new MxOperation(size);
+                    matrixOp.LoadData();
+                    matrixOp.Calculate();
+                    matrixOp.Validate();
+            }
 
 
-            for (int i = 0; i < hash.Length; i++)
-                sb.Append(hash[i].ToString("X2"));
-            return sb.ToString();
-        }
-
-        public static string MD5Hash(string text)
-        {
-            var strBuilder = new StringBuilder();
-
-            MD5 md5 = new MD5CryptoServiceProvider();
-            md5.ComputeHash(Encoding.ASCII.GetBytes(text));
-            byte[] result = md5.Hash;
-
-            for (int i = 0; i < result.Length; i++)
-                strBuilder.Append(result[i].ToString("x2"));
-
-            return strBuilder.ToString();
+            Console.ReadLine();
         }
     }
 }
