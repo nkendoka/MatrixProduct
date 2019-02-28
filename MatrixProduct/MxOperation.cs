@@ -10,6 +10,7 @@ namespace MatrixProduct
 {
     public class MxOperation
     {
+        private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private readonly InvCloudService cService;
         private readonly int size;
         //private readonly long[,] A;//private readonly long[,] B;
@@ -18,13 +19,17 @@ namespace MatrixProduct
         private double[,] C;
         public MxOperation(int mSize)
         {
+            log4net.Config.XmlConfigurator.Configure();
+            log.Info($"Request to Initialize DataSet: {mSize}.");
             cService = new InvCloudService();
             size = mSize;
+            var resp = cService.Init(size);
+            log.Info(resp.Success?$"Initialized Successfully: {resp.Value}.":"Error Initialization.");
         }
 
         public void LoadData()
         {
-            cService.Init(size);
+            log.Info($"LoadData starting.");
             var rowsA = new List<double[]>();
             var rowsB = new List<double[]>();
 
@@ -36,18 +41,24 @@ namespace MatrixProduct
 
             A = DenseMatrix.OfRowArrays(rowsA);
             B = DenseMatrix.OfRowArrays(rowsB);
+
+            log.Info($"LoadData complete.");
         }
 
         public void Calculate()
         {
+            log.Info($"Matrix multiplying started.");
             mProduct();
+            log.Info($"Matrix multiplying complete.");
         }
 
         public void Validate()
         {
+            log.Info($"Validating hash.");
             var strf = Formated(C);
             var hs = MD5Hash(strf);
-            cService.Validate(hs);
+            var resp = cService.Validate(hs);
+            log.Info($"Validation response: {nameof(resp.Success)} : {resp.Success}");
         }
 
         private long[,] mProduct(int[,] A, int[,] B)
@@ -77,12 +88,12 @@ namespace MatrixProduct
             var retval = string.Empty;
             var size = A.GetLength(0);
 
-            //foreach (var r in A)
-            //    retval += r.ToString();
+            foreach (var r in A)
+                retval += r.ToString();
 
-            for (int i = 0; i < size; i++)
-                for (int j = 0; j < size; j++)
-                    retval += A[j, i].ToString();
+            //for (int i = 0; i < size; i++)
+            //    for (int j = 0; j < size; j++)
+            //        retval += A[j, i].ToString();
 
             return retval;
         }

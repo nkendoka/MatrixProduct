@@ -10,6 +10,7 @@ namespace MatrixProduct
 {
     class Program
     {
+        private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         static void Main(string[] args)
         {
             if (args.Any())
@@ -29,7 +30,7 @@ namespace MatrixProduct
                     matrixOp.Calculate();
                     matrixOp.Validate();
             }
-
+            log.Info($"Terminated.");
 
             Console.ReadLine();
         }

@@ -14,12 +14,12 @@ namespace MatrixProduct
 {
     public class InvCloudService
     {
-        public bool Init(int size)
+        public InitResponse Init(int size)
         {
             string apiUri = ConfigurationManager.AppSettings["ApiGetInitSize"];
             var json = GetHttps(apiUri, size.ToString());
             var response = JsonConvert.DeserializeObject<InitResponse>(json);
-            return response.Success;
+            return response;
         }
 
         public double[] GetRowData(string dataset, int index)
@@ -36,12 +36,12 @@ namespace MatrixProduct
             return retval;
         }
 
-        public bool Validate(string hashString)
+        public ValidateResponse Validate(string hashString)
         {
             string apiUri = ConfigurationManager.AppSettings["ApiPostValidate"];
             var json = PostHttps(apiUri, hashString);
             var response = JsonConvert.DeserializeObject<ValidateResponse>(json);
-            return response.Success;
+            return response;
         }
 
         private string GetHttps(string serviceRootUrl, string index)
@@ -52,7 +52,6 @@ namespace MatrixProduct
                 {return true;};
 
             HttpWebRequest httpWRequest = (HttpWebRequest)WebRequest.Create(qUrl);
-            //httpWRequest.Credentials = new NetworkCredential(this.txtUsername.Text, this.txtPassword.Text);
             httpWRequest.KeepAlive = false;
             httpWRequest.PreAuthenticate = true;
             httpWRequest.Headers.Set("Pragma", "no-cache");
