@@ -30,7 +30,7 @@ namespace MatrixProduct
 
         public void LoadData()
         {
-            log.Info($"LoadData started.");
+            log.Info("LoadData started.");
             var rowsA = new ConcurrentDictionary<int, double[]>();
             var rowsB = new ConcurrentDictionary<int, double[]>();
 
@@ -52,26 +52,27 @@ namespace MatrixProduct
             A = DenseMatrix.OfRowArrays(da);
             B = DenseMatrix.OfRowArrays(db);
 
-            log.Info($"LoadData complete.");
+            log.Info("LoadData complete.");
         }
 
         public void Calculate()
         {
-            log.Info($"Matrix multiplying started.");
+            log.Info("Matrix multiplying started.");
             mProduct();
-            log.Info($"Matrix multiplying complete.");
+            log.Info("Matrix multiplying complete.");
         }
 
         public void Validate()
         {
-            log.Info($"Compute hash started.");
+            log.Info("Compute hash started.");
             var strf = FormatM(C);
             var hs = MD5Hash(strf);
-            log.Info($"Hash compute complete.");
+            log.Info("Hash compute complete.");
+            log.Info($"{hs}");
 
             log.Info($"Validating hash.");
             var resp = cService.Validate(hs);
-            log.Info($"Validation response: {resp.Value}. {nameof(resp.Success)}: {resp.Success}");
+            log.Info($"Validation response: {resp.Value}.");
         }
 
         private long[,] mProduct(int[,] A, int[,] B)
@@ -136,7 +137,7 @@ namespace MatrixProduct
             byte[] result = md5.Hash;
 
             for (int i = 0; i < result.Length; i++)
-                strBuilder.Append(result[i].ToString("X2"));
+                strBuilder.Append(result[i].ToString("x2"));
 
             return strBuilder.ToString();
         }

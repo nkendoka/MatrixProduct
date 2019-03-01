@@ -22,8 +22,8 @@ namespace MatrixProduct
             {
                     Console.Write(">>");
                     var rd = Console.ReadLine();
-                    if ("QEX".Contains(rd.ToUpper().First())) break;
-                    if (!int.TryParse(rd, out int size)) continue;
+                    if (!rd.Any() || "QEX".Contains(rd.ToUpper().First())) break;
+                    if (!int.TryParse(rd, out int size) || size<2) continue;
 
                     var matrixOp = new MxOperation(size);
                     matrixOp.LoadData();
