@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Security;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,13 +23,28 @@ namespace MatrixProduct
             return response;
         }
 
-        public double[] GetRowData(string dataset, int index)
+        public int[] GetRowData(int index)
         {
-            double[] retval = new List<double>().ToArray();
+            int[] retval = new List<int>().ToArray();
             string apiUri = ConfigurationManager.AppSettings["ApiGetDataSet"];
-            var uriParams = $@"{dataset}/row/{index.ToString()}";
+            var uriParams = $@"A/row/{index.ToString()}";
+
             var json = GetHttps(apiUri, uriParams);
-            var response =  JsonConvert.DeserializeObject<DataSetResponse>(json);
+            var response = JsonConvert.DeserializeObject<DataSetResponse>(json);
+
+            if (response.Success)
+                retval = response.Value;
+
+            return retval;
+        }
+
+        public int[] GetColumnData(int index)
+        {
+            int[] retval = new List<int>().ToArray();
+            string apiUri = ConfigurationManager.AppSettings["ApiGetDataSet"];
+            var uriParams = $@"B/col/{index.ToString()}";
+            var json = GetHttps(apiUri, uriParams);
+            var response = JsonConvert.DeserializeObject<DataSetResponse>(json);
 
             if (response.Success)
                 retval = response.Value;
@@ -43,7 +59,6 @@ namespace MatrixProduct
             var response = JsonConvert.DeserializeObject<ValidateResponse>(json);
             return response;
         }
-
         private string GetHttps(string serviceRootUrl, string index)
         {
             var qUrl = serviceRootUrl + index;
@@ -70,11 +85,53 @@ namespace MatrixProduct
             return json;
         }
 
+        private string GetHttpsAsync(string serviceRootUrl, string index)
+        {
+            var qUrl = serviceRootUrl + index;
+            ServicePointManager.ServerCertificateValidationCallback =
+                delegate (Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
+                { return true; };
+
+            HttpWebRequest httpWRequest = (HttpWebRequest)WebRequest.Create(qUrl);
+            httpWRequest.KeepAlive = false;
+            httpWRequest.PreAuthenticate = true;
+            httpWRequest.Headers.Set("Pragma", "no-cache");
+            httpWRequest.ContentType = "text/xml";
+            httpWRequest.Method = "GET";
+            httpWRequest.Headers.Add("Translate", "t");
+            httpWRequest.UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; InfoPath.1)";
+            httpWRequest.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+
+            Task<WebResponse> task = Task.Factory.FromAsync(httpWRequest.BeginGetResponse,
+                asyncResult => httpWRequest.EndGetResponse(asyncResult),
+                (object)null);
+
+            return task.ContinueWith(t => ReadStreamFromResponse(t.Result)).Result;
+
+            ////HttpWebResponse httpWResponse = await httpWRequest.GetResponseAsync();
+            ////Stream strm = httpWResponse.GetResponseStream();
+            //StreamReader sr = new StreamReader(strm);
+            //var json = sr.ReadToEnd();
+            //sr.Close();
+
+            //return json;
+        }
+
+        private static string ReadStreamFromResponse(WebResponse response)
+        {
+            using (Stream responseStream = response.GetResponseStream())
+            using (StreamReader sr = new StreamReader(responseStream))
+            {
+                string strContent = sr.ReadToEnd();
+                return strContent;
+            }
+        }
+
         private string PostHttps(string serviceRootUrl, string body)
         {
             ServicePointManager.ServerCertificateValidationCallback =
                 delegate (Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
-                {return true;};
+                { return true; };
 
             var httpWebRequest = (HttpWebRequest)WebRequest.Create(serviceRootUrl);
             httpWebRequest.ContentType = "application/json";

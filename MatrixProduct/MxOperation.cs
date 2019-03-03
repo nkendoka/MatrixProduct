@@ -14,10 +14,12 @@ namespace MatrixProduct
     {
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private readonly InvCloudService cService;
+        private int batchSize = 5;
         private readonly int size;
-        private Matrix<double> A;
-        private Matrix<double> B;
-        private double[,] C;
+        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, int>> bufferMatrixC;
+        //private readonly ConcurrentDictionary<int, long> bufferMatrixC;
+        private readonly ConcurrentDictionary<int, int> C;
+
         public MxOperation(int mSize)
         {
             log4net.Config.XmlConfigurator.Configure();
@@ -25,54 +27,69 @@ namespace MatrixProduct
             cService = new InvCloudService();
             size = mSize;
             var resp = cService.Init(size);
+
+            bufferMatrixC = new ConcurrentDictionary<int, ConcurrentDictionary<int, int>>(Enumerable.Range(0, size * size).
+                    ToDictionary(x => x, x => new ConcurrentDictionary<int, int>(Enumerable.Range(0, size).ToDictionary(y => y, y => 1))));
+
+            //bufferMatrixC = new ConcurrentDictionary<int, long>(Enumerable.Range(0, size * size).ToDictionary(x => x, x => (long)1));
+
+            C = new ConcurrentDictionary<int, int>(Enumerable.Range(0, size * size).ToDictionary(x => x, x => 1));
+
             log.Info(resp.Success?$"Initialized Successfully: {resp.Value}.":"Error Initialization.");
         }
 
-        public void LoadData()
+        public void  LoadData()
         {
             log.Info("LoadData started.");
-            var rowsA = new ConcurrentDictionary<int, double[]>();
-            var rowsB = new ConcurrentDictionary<int, double[]>();
+            var items = new List<int>(Enumerable.Range(0, size));
 
-            var result = Parallel.For(0, size, (i, state) => {
+            while (items.Any())
+            {
+                var range = items.Take(batchSize).ToList();
 
-                if (state.ShouldExitCurrentIteration)
+                var result = Parallel.For(range.First(), range.Last(), (i, state) =>
                 {
-                    if (state.LowestBreakIteration < i)
-                        return;
-                }
+                    var rowA = cService.GetRowData(i);
+                    var colB = cService.GetColumnData(i);
 
-                rowsA[i] = cService.GetRowData("A", i);
-                rowsB[i] = cService.GetRowData("B", i);
-            });
+                    for (int j = 0; j < rowA.Length; j++)
+                    {
+                        var cIndx = i * size + j;
+                        //C.TryGetValue(cIndx, out int cVal);
 
-            var da = rowsA.OrderBy(x => x.Key).ToDictionary((keyItem) => keyItem.Key, (valueItem) => valueItem.Value).Values.ToArray();
-            var db  = rowsB.OrderBy(x => x.Key).ToDictionary((keyItem) => keyItem.Key, (valueItem) => valueItem.Value).Values.ToArray();
+                        //bufferMatrixC.TryGetValue(cIndx, out ConcurrentDictionary<int, int> bufferRow);
+                        //bufferRow.TryGetValue()
 
-            A = DenseMatrix.OfRowArrays(da);
-            B = DenseMatrix.OfRowArrays(db);
+                    }
+                });
+
+                items = items.Skip(batchSize).ToList();
+            }
 
             log.Info("LoadData complete.");
         }
 
-        public void Calculate()
-        {
-            log.Info("Matrix multiplying started.");
-            mProduct();
-            log.Info("Matrix multiplying complete.");
-        }
-
         public void Validate()
         {
-            log.Info("Compute hash started.");
-            var strf = FormatM(C);
-            var hs = MD5Hash(strf);
-            log.Info("Hash compute complete.");
-            log.Info($"{hs}");
+            //return;
+            var intArray = C.Select(x => x.Value).ToArray();
 
-            log.Info($"Validating hash.");
+            var hs = MD5Hash(intArray);
+
+            log.Info($"Validating hash. {hs}");
             var resp = cService.Validate(hs);
             log.Info($"Validation response: {resp.Value}.");
+        }
+
+        //Joined by colulmn then by row into a single string without separators and then hashed.
+        public string MD5Hash(int[] source)
+        {
+            using (var md5 = MD5.Create())
+            {
+                var input = source.Aggregate(new StringBuilder(), (s, i) => s.Append(i)).ToString();
+                byte[] data = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
+                return data.Aggregate(new StringBuilder(), (s, i) => s.Append(i.ToString())).ToString();
+            }
         }
 
         private long[,] mProduct(int[,] A, int[,] B)
@@ -88,58 +105,6 @@ namespace MatrixProduct
             return C;
         }
 
-        private double[,] mProduct()
-        {
-            var mC = A.Multiply(B);
-            C = mC.ToArray();
 
-            return C;
-        }
-
-        //Joined by colulmn then by row into a single string without separators and then hashed.
-        private string FormatM(double[,] A)
-        {
-            var retval = string.Empty;
-            var matrixFormat = new ConcurrentDictionary<int, string>();
-            var result = Parallel.For(0, size, (i, state) => {
-
-                if (state.ShouldExitCurrentIteration)
-                {
-                    if (state.LowestBreakIteration < i)
-                        return;
-                }
-
-                var row = GetRow(i);
-                var newSet = string.Join(null, row.ToList());
-                var res = matrixFormat.TryAdd(i, newSet);
-            });
-
-            retval = string.Join(null, matrixFormat.OrderBy(x => x.Key).Select(y => y.Value));
-            return retval;
-        }
-
-        private double[] GetRow(int row)
-        {
-            int cols = C.GetUpperBound(1) + 1;
-            double[] result = new double[cols];
-
-            int size = Marshal.SizeOf<double>();
-            Buffer.BlockCopy(C, row * cols * size, result, 0, cols * size);
-            return result;
-        }
-
-        private string MD5Hash(string text)
-        {
-            var strBuilder = new StringBuilder();
-
-            MD5 md5 = new MD5CryptoServiceProvider();
-            md5.ComputeHash(Encoding.ASCII.GetBytes(text));
-            byte[] result = md5.Hash;
-
-            for (int i = 0; i < result.Length; i++)
-                strBuilder.Append(result[i].ToString("x2"));
-
-            return strBuilder.ToString();
-        }
     }
 }

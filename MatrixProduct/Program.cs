@@ -1,6 +1,8 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
@@ -27,7 +29,6 @@ namespace MatrixProduct
 
                     var matrixOp = new MxOperation(size);
                     matrixOp.LoadData();
-                    matrixOp.Calculate();
                     matrixOp.Validate();
             }
             log.Info($"Terminated.");

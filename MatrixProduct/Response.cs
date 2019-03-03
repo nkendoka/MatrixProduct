@@ -18,7 +18,7 @@ namespace MatrixProduct
     }
     public class DataSetResponse : BaseResponse
     {
-        public double[] Value { get; set; }
+        public int[] Value { get; set; }
     }
     public class ValidateResponse : BaseResponse
     {
