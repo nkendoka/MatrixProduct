@@ -29,7 +29,7 @@ namespace MatrixProduct
             string apiUri = ConfigurationManager.AppSettings["ApiGetDataSet"];
             var uriParams = $@"A/row/{index.ToString()}";
 
-            var json = GetHttps(apiUri, uriParams);
+            var json = GetHttps(apiUri, uriParams, true);
             var response = JsonConvert.DeserializeObject<DataSetResponse>(json);
 
             if (response.Success)
@@ -43,7 +43,7 @@ namespace MatrixProduct
             int[] retval = new List<int>().ToArray();
             string apiUri = ConfigurationManager.AppSettings["ApiGetDataSet"];
             var uriParams = $@"B/col/{index.ToString()}";
-            var json = GetHttps(apiUri, uriParams);
+            var json = GetHttps(apiUri, uriParams, true);
             var response = JsonConvert.DeserializeObject<DataSetResponse>(json);
 
             if (response.Success)
@@ -59,33 +59,7 @@ namespace MatrixProduct
             var response = JsonConvert.DeserializeObject<ValidateResponse>(json);
             return response;
         }
-        private string GetHttps(string serviceRootUrl, string index)
-        {
-            var qUrl = serviceRootUrl + index;
-            ServicePointManager.ServerCertificateValidationCallback =
-                delegate (Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
-                {return true;};
-
-            HttpWebRequest httpWRequest = (HttpWebRequest)WebRequest.Create(qUrl);
-            httpWRequest.KeepAlive = false;
-            httpWRequest.PreAuthenticate = true;
-            httpWRequest.Headers.Set("Pragma", "no-cache");
-            httpWRequest.ContentType = "text/xml";
-            httpWRequest.Method = "GET";
-            httpWRequest.Headers.Add("Translate", "t");
-            httpWRequest.UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; InfoPath.1)";
-            httpWRequest.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
-
-            HttpWebResponse httpWResponse = (HttpWebResponse)httpWRequest.GetResponse();
-            Stream strm = httpWResponse.GetResponseStream();
-            StreamReader sr = new StreamReader(strm);
-            var json = sr.ReadToEnd();
-            sr.Close();
-
-            return json;
-        }
-
-        private string GetHttpsAsync(string serviceRootUrl, string index)
+        private string GetHttps(string serviceRootUrl, string index, bool async = false)
         {
             var qUrl = serviceRootUrl + index;
             ServicePointManager.ServerCertificateValidationCallback =
@@ -102,19 +76,20 @@ namespace MatrixProduct
             httpWRequest.UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; InfoPath.1)";
             httpWRequest.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
-            Task<WebResponse> task = Task.Factory.FromAsync(httpWRequest.BeginGetResponse,
-                asyncResult => httpWRequest.EndGetResponse(asyncResult),
-                (object)null);
+            if (async)
+            {
+                Task<WebResponse> task = Task.Factory.FromAsync(httpWRequest.BeginGetResponse,
+                    asyncResult => httpWRequest.EndGetResponse(asyncResult),
+                    (object)null);
 
-            return task.ContinueWith(t => ReadStreamFromResponse(t.Result)).Result;
-
-            ////HttpWebResponse httpWResponse = await httpWRequest.GetResponseAsync();
-            ////Stream strm = httpWResponse.GetResponseStream();
-            //StreamReader sr = new StreamReader(strm);
-            //var json = sr.ReadToEnd();
-            //sr.Close();
-
-            //return json;
+                return task.ContinueWith(t => ReadStreamFromResponse(t.Result)).Result;
+            }
+            else
+            {
+                HttpWebResponse httpWResponse = (HttpWebResponse)httpWRequest.GetResponse();
+                var json = ReadStreamFromResponse(httpWResponse);
+                return json;
+            }
         }
 
         private static string ReadStreamFromResponse(WebResponse response)

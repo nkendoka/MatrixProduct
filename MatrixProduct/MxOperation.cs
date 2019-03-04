@@ -14,11 +14,12 @@ namespace MatrixProduct
     {
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private readonly InvCloudService cService;
-        private int batchSize = 5;
         private readonly int size;
-        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, int>> bufferMatrixC;
-        //private readonly ConcurrentDictionary<int, long> bufferMatrixC;
-        private readonly ConcurrentDictionary<int, int> C;
+        private int batchSize = 5;
+        private readonly int[,] bufferC;
+        private int[] C;
+        private readonly int[,] A;
+        private readonly int[,] B;
 
         public MxOperation(int mSize)
         {
@@ -28,17 +29,27 @@ namespace MatrixProduct
             size = mSize;
             var resp = cService.Init(size);
 
-            bufferMatrixC = new ConcurrentDictionary<int, ConcurrentDictionary<int, int>>(Enumerable.Range(0, size * size).
-                    ToDictionary(x => x, x => new ConcurrentDictionary<int, int>(Enumerable.Range(0, size).ToDictionary(y => y, y => 1))));
+            //bufferMatrixC = new ConcurrentDictionary<int, ConcurrentDictionary<int, int>>(Enumerable.Range(0, size * size).
+            //       ToDictionary(x => x, x => new ConcurrentDictionary<int, int>(Enumerable.Range(0, size).ToDictionary(y => y, y => 1))));
+
+            //bufferC = new int[size, size];
 
             //bufferMatrixC = new ConcurrentDictionary<int, long>(Enumerable.Range(0, size * size).ToDictionary(x => x, x => (long)1));
+            //for (int i = 0; i < size; i++)
+            //    for (int j = 0; j < size; j++)
+            //        for (int y = 0; y < size; y++)
+            //            bufferC[i, j] = 1;
 
-            C = new ConcurrentDictionary<int, int>(Enumerable.Range(0, size * size).ToDictionary(x => x, x => 1));
+            //C = Enumerable.Range(0, size * size).Select(x => 1).ToArray();
 
-            log.Info(resp.Success?$"Initialized Successfully: {resp.Value}.":"Error Initialization.");
+            C = new int[size* size];
+
+            A = new int[size, size];
+            B = new int[size, size];
+            log.Info(resp.Success ? $"Initialized Successfully: {resp.Value}." : "Error Initialization.");
         }
 
-        public void  LoadData()
+        public void LoadData()
         {
             log.Info("LoadData started.");
             var items = new List<int>(Enumerable.Range(0, size));
@@ -47,34 +58,35 @@ namespace MatrixProduct
             {
                 var range = items.Take(batchSize).ToList();
 
-                var result = Parallel.For(range.First(), range.Last(), (i, state) =>
+                var result = Parallel.For(range.First(), range.Last() + 1, (i, state) =>
                 {
                     var rowA = cService.GetRowData(i);
                     var colB = cService.GetColumnData(i);
 
                     for (int j = 0; j < rowA.Length; j++)
                     {
-                        var cIndx = i * size + j;
+                        //var cIndx = i * size + j;
                         //C.TryGetValue(cIndx, out int cVal);
 
                         //bufferMatrixC.TryGetValue(cIndx, out ConcurrentDictionary<int, int> bufferRow);
                         //bufferRow.TryGetValue()
 
+                        A[i, j] = rowA[j];
+                        B[i, j] = colB[j];
                     }
                 });
 
                 items = items.Skip(batchSize).ToList();
             }
-
             log.Info("LoadData complete.");
         }
 
         public void Validate()
         {
-            //return;
-            var intArray = C.Select(x => x.Value).ToArray();
+            mProduct();
+            // var intArray = C.Select(x => x.Value).ToArray();
 
-            var hs = MD5Hash(intArray);
+            var hs = MD5Hash(C);
 
             log.Info($"Validating hash. {hs}");
             var resp = cService.Validate(hs);
@@ -92,19 +104,12 @@ namespace MatrixProduct
             }
         }
 
-        private long[,] mProduct(int[,] A, int[,] B)
+        private void mProduct()
         {
-            var size = A.GetLength(0);
-            var C = new long[size, size];
-
             for (int i = 0; i < size; i++)
                 for (int j = 0; j < size; j++)
                     for (int k = 0; k < size; k++)
-                        C[i, j] += A[i, k] * B[k, j];
-
-            return C;
+                        C[i * size + j] += A[i, k] * B[k, j];
         }
-
-
     }
 }
