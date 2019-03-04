@@ -28,7 +28,7 @@ namespace MatrixProduct
                     if (!int.TryParse(rd, out int size) || size<2) continue;
 
                     var matrixOp = new MxOperation(size);
-                    matrixOp.LoadData();
+                    matrixOp.LoadData2();
                     matrixOp.Validate();
             }
             log.Info($"Terminated.");

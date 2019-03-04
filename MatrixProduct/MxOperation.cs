@@ -15,11 +15,9 @@ namespace MatrixProduct
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private readonly InvCloudService cService;
         private readonly int size;
-        private int batchSize = 5;
-        private readonly int[,] bufferC;
-        private int[] C;
-        private readonly int[,] A;
-        private readonly int[,] B;
+        private readonly int[] C;
+        private readonly ConcurrentDictionary<int, int> rC;
+        private HMatrix nw, ne, sw, se;
 
         public MxOperation(int mSize)
         {
@@ -27,33 +25,76 @@ namespace MatrixProduct
             log.Info($"Request to Initialize DataSet: {mSize}.");
             cService = new InvCloudService();
             size = mSize;
-            var resp = cService.Init(size);
+            //var resp = cService.Init(size);
 
-            //bufferMatrixC = new ConcurrentDictionary<int, ConcurrentDictionary<int, int>>(Enumerable.Range(0, size * size).
-            //       ToDictionary(x => x, x => new ConcurrentDictionary<int, int>(Enumerable.Range(0, size).ToDictionary(y => y, y => 1))));
+            C = Enumerable.Range(0, size * size).Select(x => 1).ToArray();
+            rC = new ConcurrentDictionary<int, int>(Enumerable.Range(0, size * size).ToDictionary(x => x, x => 1));
 
-            //bufferC = new int[size, size];
+            var hmSizeLT = size > 10 ? (size / 2) : size;
+            var hmSizeRB = size - hmSizeLT;
+            nw = new HMatrix(0, 0, hmSizeLT, hmSizeLT, size);
+            se = new HMatrix(hmSizeLT + 1, hmSizeLT + 1, hmSizeRB, hmSizeRB, size);
 
-            //bufferMatrixC = new ConcurrentDictionary<int, long>(Enumerable.Range(0, size * size).ToDictionary(x => x, x => (long)1));
-            //for (int i = 0; i < size; i++)
-            //    for (int j = 0; j < size; j++)
-            //        for (int y = 0; y < size; y++)
-            //            bufferC[i, j] = 1;
+            var hmSizeRTx = size - hmSizeLT;
+            var hmSizeRTy = hmSizeLT;
 
-            //C = Enumerable.Range(0, size * size).Select(x => 1).ToArray();
+            var hmSizeLBx = hmSizeLT;
+            var hmSizeLBy = size - hmSizeLT;
 
-            C = new int[size* size];
+            ne = new HMatrix(hmSizeLT + 1, 0, hmSizeRTx, hmSizeRTy, size);
+            sw = new HMatrix(0, hmSizeLT + 1, hmSizeLBx, hmSizeLBy, size);
 
-            A = new int[size, size];
-            B = new int[size, size];
-            log.Info(resp.Success ? $"Initialized Successfully: {resp.Value}." : "Error Initialization.");
+            //log.Info(resp.Success ? $"Initialized Successfully: {resp.Value}." : "Error Initialization.");
+        }
+
+        public void LoadData2()
+        {
+            log.Info("LoadData started.");
+
+            for (int i = 0; i < size / 2; i++)
+            {
+                var t1 = HalfMatrix(true, i);
+                var t2 = HalfMatrix(true, size / 2 + i);
+                var result = Task.WhenAll(t1, t2).Result;
+            }
+
+            for (int i = 0; i < size / 2; i++)
+            {
+                var t1 = HalfMatrix(false, i);
+                var t2 = HalfMatrix(false, size / 2 + (i));
+                var result = Task.WhenAll(t1, t2).Result;
+            }
+
+            log.Info("LoadData complete.");
+        }
+        private async Task<int> HalfMatrix(bool rcol, int index)
+        {
+            var rowA = cService.GetRowData(index);
+            var colB = cService.GetColumnData(index);
+
+            //var t1 = Compute(true, i);
+            //var t2 = Compute(true, size / 2 + (i));
+            //var result = Task.WhenAll(t1, t2).Result;
+
+            return 1;
+        }
+
+        private static async Task<int> Compute(bool rcol, int index)
+        {
+            //var t1 = HalfMatrix(true, i);
+            //var t2 = HalfMatrix(true, size / 2 + (i));
+            //var result = Task.WhenAll(t1, t2).Result;
+
+            return 1;
         }
 
         public void LoadData()
         {
+            var batchSize = 5;
             log.Info("LoadData started.");
             var items = new List<int>(Enumerable.Range(0, size));
-
+            var A = new int[size, size];
+            var B = new int[size, size];
             while (items.Any())
             {
                 var range = items.Take(batchSize).ToList();
@@ -79,15 +120,13 @@ namespace MatrixProduct
                 items = items.Skip(batchSize).ToList();
             }
             log.Info("LoadData complete.");
+            mProduct(A, B);
         }
 
         public void Validate()
         {
-            mProduct();
-            // var intArray = C.Select(x => x.Value).ToArray();
-
+            //mProduct();
             var hs = MD5Hash(C);
-
             log.Info($"Validating hash. {hs}");
             var resp = cService.Validate(hs);
             log.Info($"Validation response: {resp.Value}.");
@@ -104,7 +143,7 @@ namespace MatrixProduct
             }
         }
 
-        private void mProduct()
+        private void mProduct(int[,] A, int[,] B)
         {
             for (int i = 0; i < size; i++)
                 for (int j = 0; j < size; j++)
