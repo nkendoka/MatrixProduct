@@ -32,8 +32,6 @@ namespace MatrixProduct
                     matrixOp.Validate();
             }
             log.Info($"Terminated.");
-
-            Console.ReadLine();
         }
     }
 }

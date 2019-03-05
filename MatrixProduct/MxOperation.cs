@@ -65,15 +65,17 @@ namespace MatrixProduct
                             {
                                 var cIndx = i * size + k;
                                 C[cIndx] -= bufferC[i, k, j];
+
+                                C[cIndx] += (bufferC[i, k, j] * rowA[j]);
                                 bufferC[i, k, j] *= (short)rowA[j];
-                                C[cIndx] += bufferC[i, k, j];
                             }
                             lock (locker)
                             {
                                 var cIndy = k * size + i;
                                 C[cIndy] -= bufferC[k, i, j];
+
+                                C[cIndy] += bufferC[k, i, j] * (short)colB[j];
                                 bufferC[k, i, j] *= (short)colB[j];
-                                C[cIndy] += bufferC[k, i, j];
                             }
                         }
                     }
