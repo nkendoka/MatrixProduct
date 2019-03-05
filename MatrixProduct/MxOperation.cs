@@ -16,9 +16,9 @@ namespace MatrixProduct
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private readonly InvCloudService cService;
         private readonly object locker = new object();
-        private const int batchSize = 50;
+        private const int batchSize = 25;
         private readonly int size;
-        private readonly int[] C;
+        private readonly long[] C;
         private readonly short[,,] bufferC;
 
         public MxOperation(int mSize)
@@ -35,7 +35,7 @@ namespace MatrixProduct
                     for (int m = 0; m < size; m++)
                         bufferC[i, j, m] = 1;
 
-            C = Enumerable.Range(0, size * size).Select(x => size).ToArray();
+            C = Enumerable.Range(0, size * size).Select(x => (long)size).ToArray();
 
             log.Info(resp.Success ? $"Initialized Successfully: {resp.Value}." : "Error Initialization.");
         }
@@ -132,7 +132,7 @@ namespace MatrixProduct
         }
 
         //Joined by colulmn then by row into a single string without separators and then hashed.
-        public string MD5Hash(int[] source)
+        public string MD5Hash(long[] source)
         {
             using (var md5 = MD5.Create())
             {

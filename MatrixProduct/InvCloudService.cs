@@ -66,7 +66,11 @@ namespace MatrixProduct
                 delegate (Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
                 { return true; };
 
+            ServicePointManager.DefaultConnectionLimit = int.Parse(ConfigurationManager.AppSettings["connectionLimit"]);
+            ServicePointManager.Expect100Continue = false;
+
             HttpWebRequest httpWRequest = (HttpWebRequest)WebRequest.Create(qUrl);
+            httpWRequest.Proxy = null;
             httpWRequest.KeepAlive = false;
             httpWRequest.PreAuthenticate = true;
             httpWRequest.Headers.Set("Pragma", "no-cache");
