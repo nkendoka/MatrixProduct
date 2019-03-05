@@ -56,6 +56,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="HMatrix.cs" />
     <Compile Include="InvCloudService.cs" />
     <Compile Include="MxOperation.cs" />
     <Compile Include="Program.cs" />
