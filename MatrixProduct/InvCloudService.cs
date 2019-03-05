@@ -29,7 +29,7 @@ namespace MatrixProduct
             string apiUri = ConfigurationManager.AppSettings["ApiGetDataSet"];
             var uriParams = $@"A/row/{index.ToString()}";
 
-            var json = GetHttps(apiUri, uriParams, true);
+            var json = GetHttps(apiUri, uriParams);
             var response = JsonConvert.DeserializeObject<DataSetResponse>(json);
 
             if (response.Success)
@@ -43,7 +43,7 @@ namespace MatrixProduct
             int[] retval = new List<int>().ToArray();
             string apiUri = ConfigurationManager.AppSettings["ApiGetDataSet"];
             var uriParams = $@"B/col/{index.ToString()}";
-            var json = GetHttps(apiUri, uriParams, true);
+            var json = GetHttps(apiUri, uriParams);
             var response = JsonConvert.DeserializeObject<DataSetResponse>(json);
 
             if (response.Success)
@@ -59,7 +59,7 @@ namespace MatrixProduct
             var response = JsonConvert.DeserializeObject<ValidateResponse>(json);
             return response;
         }
-        private string GetHttps(string serviceRootUrl, string index, bool async = false)
+        private string GetHttps(string serviceRootUrl, string index)
         {
             var qUrl = serviceRootUrl + index;
             ServicePointManager.ServerCertificateValidationCallback =
@@ -76,20 +76,17 @@ namespace MatrixProduct
             httpWRequest.UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; InfoPath.1)";
             httpWRequest.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
-            if (async)
-            {
-                Task<WebResponse> task = Task.Factory.FromAsync(httpWRequest.BeginGetResponse,
-                    asyncResult => httpWRequest.EndGetResponse(asyncResult),
-                    (object)null);
 
-                return task.ContinueWith(t => ReadStreamFromResponse(t.Result)).Result;
-            }
-            else
-            {
-                HttpWebResponse httpWResponse = (HttpWebResponse)httpWRequest.GetResponse();
-                var json = ReadStreamFromResponse(httpWResponse);
-                return json;
-            }
+            Task<WebResponse> task = Task.Factory.FromAsync(httpWRequest.BeginGetResponse,
+                asyncResult => httpWRequest.EndGetResponse(asyncResult),
+                (object)null);
+
+            return task.ContinueWith(t => ReadStreamFromResponse(t.Result)).Result;
+
+            //HttpWebResponse httpWResponse = (HttpWebResponse)httpWRequest.GetResponse();
+            //    var json = ReadStreamFromResponse(httpWResponse);
+            //    return json;
+
         }
 
         private static string ReadStreamFromResponse(WebResponse response)

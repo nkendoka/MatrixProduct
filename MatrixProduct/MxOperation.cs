@@ -3,6 +3,7 @@ using MathNet.Numerics.LinearAlgebra.Double;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -15,7 +16,7 @@ namespace MatrixProduct
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private readonly InvCloudService cService;
         private readonly object locker = new object();
-        private const int batchSize = 5;
+        private const int batchSize = 50;
         private readonly int size;
         private readonly int[] C;
         private readonly short[,,] bufferC;
@@ -42,13 +43,17 @@ namespace MatrixProduct
         public void LoadData2()
         {
             log.Info("LoadData started.");
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
             var items = new List<int>(Enumerable.Range(0, size));
             while (items.Any())
             {
                 var range = items.Take(batchSize).ToList();
                 var result = Parallel.For(range.First(), range.Last() + 1, (i, state) =>
-               // for (int i=0;i<size;i++)
                 {
+                    log.Info($"Thread {i} Started");
+
                     var rowA = cService.GetRowData(i);
                     var colB = cService.GetColumnData(i);
 
@@ -56,22 +61,31 @@ namespace MatrixProduct
                     {
                         for (int k = 0; k < size; k++)
                         {
-                            var cIndx = i * size + k;
-                            C[cIndx] -= bufferC[i, k, j];
-                            bufferC[i, k, j] *= (short)rowA[j];
-                            C[cIndx] += bufferC[i, k, j];
-
-                            var cIndy = k * size + i;
-                            C[cIndy] -= bufferC[k, i, j];
-                            bufferC[k, i, j] *= (short)colB[j];
-                            C[cIndy] += bufferC[k, i, j];
+                            lock (locker)
+                            {
+                                var cIndx = i * size + k;
+                                C[cIndx] -= bufferC[i, k, j];
+                                bufferC[i, k, j] *= (short)rowA[j];
+                                C[cIndx] += bufferC[i, k, j];
+                            }
+                            lock (locker)
+                            {
+                                var cIndy = k * size + i;
+                                C[cIndy] -= bufferC[k, i, j];
+                                bufferC[k, i, j] *= (short)colB[j];
+                                C[cIndy] += bufferC[k, i, j];
+                            }
                         }
                     }
+
+                    log.Info($"Thread {i} Finished");
                 });
 
                 items = items.Skip(batchSize).ToList();
             }
-            log.Info("LoadData complete.");
+
+            stopwatch.Stop();
+            log.Info($"LoadData complete. {stopwatch.Elapsed.TotalSeconds}");
         }
 
         public void LoadData()
@@ -134,6 +148,16 @@ namespace MatrixProduct
                 for (int j = 0; j < size; j++)
                     for (int k = 0; k < size; k++)
                         C[i * size + j] += A[i, k] * B[k, j];
+        }
+
+        private void mProductParallel(int[,] A, int[,] B)
+        {
+            Parallel.For(0, size, i =>
+            {
+                for (int j = 0; j < size; j++)
+                    for (int k = 0; k < size; k++)
+                        C[i * size + j] += A[i, k] * B[k, j];
+            });
         }
     }
 }
